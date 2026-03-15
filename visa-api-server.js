@@ -337,10 +337,19 @@ PROCESSING PIPELINE — follow this exactly for every request
 ═══════════════════════════
 
 STEP 1 — Parse user context
-Extract: nationality, residencyCountry, hasVisaOrPermit, travelPurpose, travelGroup, stayingWithFamily, destinationCountry.
+The harness sends a context object with these fields:
+  - nationality       : ISO code e.g. "IN", "PK", "PH", "NG"
+  - residencyCountry  : ISO code e.g. "AE", "IN"
+  - travelMonth       : e.g. "2026-03" (informational only)
+  - interests         : array e.g. ["shopping","city"] — use for recommendations
+  - hasVisaOrPermit   : e.g. "SCHENGEN" or null
+  - travelGroup       : "solo" or "family"
+  - stayingWithFamily : boolean
+  - travelPurpose     : "tourist" or "student" (default tourist if absent)
+Also extract destinationCountry from the message text when user mentions a country.
 
 STEP 2 — Match SKUs
-Filter visasku where countryCode = destinationCountry AND isActive = true AND purpose matches travelPurpose (if provided).
+Filter visasku where countryCode = destinationCountry AND isActive = true AND purpose matches travelPurpose (default tourist).
 
 STEP 3 — Apply visaModeRules (descending priority, FIRST matching rule wins)
 • Check each rule's conditions against user context.
