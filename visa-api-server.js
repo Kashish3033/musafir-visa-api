@@ -469,14 +469,19 @@ function validateAndClean(result) {
   };
 }
 
-// ── ROUTES ───────────────────────────────────────────────────
+// ── SHARED HANDLER ───────────────────────────────────────────
 
-// Main endpoint — the harness calls this
-app.post("/chat", async (req, res) => {
+async function handleChat(req, res) {
   const start = Date.now();
 
   try {
-    const { question, userContext = {} } = req.body;
+    const body = req.body;
+
+    // Harness may send "message" or "question" — accept both
+    const question = body.question || body.message || "";
+
+    // Harness may send "userContext" or "context" — accept both
+    const userContext = body.userContext || body.context || {};
 
     if (!question || typeof question !== "string" || question.trim() === "") {
       return res.status(400).json({
@@ -505,9 +510,17 @@ app.post("/chat", async (req, res) => {
       _error: err.message
     });
   }
-});
+}
 
-// Health check — useful for verifying deploy is alive
+// ── ROUTES ───────────────────────────────────────────────────
+
+// /vendor/chat — what the harness actually calls
+app.post("/vendor/chat", handleChat);
+
+// /chat — alias, useful for direct testing
+app.post("/chat", handleChat);
+
+// Health check
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -519,14 +532,15 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Root — friendly message if someone opens the URL in a browser
+// Root
 app.get("/", (req, res) => {
   res.json({
     name: "Musafir Visa Chatbot API",
     version: "1.0.0",
     endpoints: {
-      "POST /chat": "Main chatbot endpoint",
-      "GET /health": "Health check"
+      "POST /vendor/chat": "Main endpoint (harness uses this)",
+      "POST /chat":        "Alias for direct testing",
+      "GET  /health":      "Health check"
     }
   });
 });
