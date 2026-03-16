@@ -448,19 +448,16 @@ function processRequest(message, context) {
   const intent  = detectIntent(message);
   const destCode = detectDestination(message);
 
-  // ── Recommendation query ─────────────────────────────────
-  if (intent === "recommendation" || (!destCode && ctx.interests && ctx.interests.length > 0)) {
-    return buildRecommendations(ctx.interests, ctx);
-  }
-
-  // ── Destination-specific query ───────────────────────────
+  // ── Destination-specific query (ALWAYS checked first) ──────
+  // If message mentions a specific country, answer about THAT country
+  // regardless of whether the phrasing sounds like a recommendation
   if (destCode) {
     const dest = DESTINATION.find(d => d.destinationCountryCode === destCode);
 
-    // Destination exists but has no SKUs in POC
+    // Destination exists but has no visa products in this POC
     if (dest && !dest.hasSkusInPoc) {
       return {
-        answer: `${dest.destinationCountryName} is available as a travel destination (interests: ${dest.interests.join(", ")}, popularity: ${Math.round(dest.popularityScore * 100)}%, starting from AED ${dest.startingPrice.amount}). However, visa booking for ${dest.destinationCountryName} is not available in the current Musafir system. Please contact Musafir support for assistance.`,
+        answer: `${dest.destinationCountryName} is a great destination for ${dest.interests.join(", ")} travellers (popularity score: ${Math.round(dest.popularityScore * 100)}%). Visa bookings for ${dest.destinationCountryName} are not available in the current Musafir system. Please contact Musafir support for assistance with this destination.`,
         references: [{collection:"destination", id:dest._id}],
         eligibility: "unknown",
         recommendedSkus: [],
@@ -468,7 +465,7 @@ function processRequest(message, context) {
       };
     }
 
-    // Run rules engine
+    // Destination has visa products — run full rules engine
     const result = runRulesEngine(destCode, ctx);
     if (!result) {
       return {
@@ -477,7 +474,7 @@ function processRequest(message, context) {
       };
     }
 
-    // Add knowledge source ref if available
+    // Attach knowledge source reference
     const ks = KNOWLEDGE_SOURCES.find(k => k.destinationCountryCode === destCode);
     if (ks) result.references.push({collection:"knowledgesources", id:ks._id, field:ks.chunkId});
 
@@ -491,7 +488,12 @@ function processRequest(message, context) {
     };
   }
 
-  // ── No destination detected — return refusal ─────────────
+  // ── No specific country mentioned — recommendation or refusal ──
+  if (intent === "recommendation" || (ctx.interests && ctx.interests.length > 0)) {
+    return buildRecommendations(ctx.interests, ctx);
+  }
+
+  // ── Nothing matched — refusal ────────────────────────────
   return {
     answer: "I can only answer questions based on the available visa dataset. This query is outside the scope of the current dataset.",
     references: [], eligibility: "unknown", recommendedSkus: [], requiredDocuments: []
