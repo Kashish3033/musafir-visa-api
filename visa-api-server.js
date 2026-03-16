@@ -1,34 +1,30 @@
 // ============================================================
-//  Musafir Visa Chatbot — Pure Rules Engine (No AI API needed)
-//  Zero external dependencies beyond express + cors
-//  Deploy: Render.com free tier
-//  Endpoint: POST /vendor/chat
+//  Musafir Visa Chatbot
 // ============================================================
 
 const express = require("express");
 const cors    = require("cors");
-
-const app = express();
+const app     = express();
 app.use(cors());
 app.use(express.json());
 
 // ════════════════════════════════════════════════════════════
-//  FULL DATASET
+//  DATASET
 // ════════════════════════════════════════════════════════════
 
 const VISA_SKU = [
-  { _id:"AE_TOUR_30D_SGL_STD_001", skuCode:"AE_TOUR_30D_SGL_STD_001", countryCode:"AE", countryName:"United Arab Emirates", purpose:"tourist", validityDays:30, stayDays:30, processingMode:"evisa", processingSpeed:"standard", processingTimeDays:3, minLeadTimeDays:2, basePrice:{currency:"AED",amount:299}, ctaUrl:"/visa/ae-tourist-single-standard", isActive:true },
-  { _id:"AE_TOUR_30D_SGL_EXP_001", skuCode:"AE_TOUR_30D_SGL_EXP_001", countryCode:"AE", countryName:"United Arab Emirates", purpose:"tourist", validityDays:30, stayDays:30, processingMode:"evisa", processingSpeed:"express",  processingTimeDays:1, minLeadTimeDays:1, basePrice:{currency:"AED",amount:339}, ctaUrl:"/visa/ae-tourist-single-express",  isActive:true },
-  { _id:"AE_STUD_90D_SGL_STD_001", skuCode:"AE_STUD_90D_SGL_STD_001", countryCode:"AE", countryName:"United Arab Emirates", purpose:"student", validityDays:180, stayDays:90, processingMode:"evisa", processingSpeed:"standard", processingTimeDays:5, minLeadTimeDays:7, basePrice:{currency:"AED",amount:499}, ctaUrl:"/visa/ae-student-standard",         isActive:true },
-  { _id:"AE_STUD_90D_SGL_EXP_001", skuCode:"AE_STUD_90D_SGL_EXP_001", countryCode:"AE", countryName:"United Arab Emirates", purpose:"student", validityDays:180, stayDays:90, processingMode:"evisa", processingSpeed:"express",  processingTimeDays:3, minLeadTimeDays:5, basePrice:{currency:"AED",amount:549}, ctaUrl:"/visa/ae-student-express",          isActive:true },
-  { _id:"SA_TOUR_30D_SGL_STD_001", skuCode:"SA_TOUR_30D_SGL_STD_001", countryCode:"SA", countryName:"Saudi Arabia",          purpose:"tourist", validityDays:30, stayDays:30, processingMode:"evisa", processingSpeed:"standard", processingTimeDays:3, minLeadTimeDays:2, basePrice:{currency:"AED",amount:309}, ctaUrl:"/visa/sa-tourist-single-standard", isActive:true },
-  { _id:"SA_TOUR_30D_SGL_EXP_001", skuCode:"SA_TOUR_30D_SGL_EXP_001", countryCode:"SA", countryName:"Saudi Arabia",          purpose:"tourist", validityDays:30, stayDays:30, processingMode:"evisa", processingSpeed:"express",  processingTimeDays:1, minLeadTimeDays:1, basePrice:{currency:"AED",amount:349}, ctaUrl:"/visa/sa-tourist-single-express",  isActive:true },
-  { _id:"SA_STUD_90D_SGL_STD_001", skuCode:"SA_STUD_90D_SGL_STD_001", countryCode:"SA", countryName:"Saudi Arabia",          purpose:"student", validityDays:180, stayDays:90, processingMode:"evisa", processingSpeed:"standard", processingTimeDays:6, minLeadTimeDays:7, basePrice:{currency:"AED",amount:514}, ctaUrl:"/visa/sa-student-standard",         isActive:true },
-  { _id:"SA_STUD_90D_SGL_EXP_001", skuCode:"SA_STUD_90D_SGL_EXP_001", countryCode:"SA", countryName:"Saudi Arabia",          purpose:"student", validityDays:180, stayDays:90, processingMode:"evisa", processingSpeed:"express",  processingTimeDays:4, minLeadTimeDays:5, basePrice:{currency:"AED",amount:564}, ctaUrl:"/visa/sa-student-express",          isActive:true },
-  { _id:"TR_TOUR_30D_SGL_STD_001", skuCode:"TR_TOUR_30D_SGL_STD_001", countryCode:"TR", countryName:"Turkey",                purpose:"tourist", validityDays:30, stayDays:30, processingMode:"evisa", processingSpeed:"standard", processingTimeDays:4, minLeadTimeDays:2, basePrice:{currency:"AED",amount:319}, ctaUrl:"/visa/tr-tourist-single-standard", isActive:true },
-  { _id:"TR_TOUR_30D_SGL_EXP_001", skuCode:"TR_TOUR_30D_SGL_EXP_001", countryCode:"TR", countryName:"Turkey",                purpose:"tourist", validityDays:30, stayDays:30, processingMode:"evisa", processingSpeed:"express",  processingTimeDays:2, minLeadTimeDays:1, basePrice:{currency:"AED",amount:359}, ctaUrl:"/visa/tr-tourist-single-express",  isActive:true },
-  { _id:"TR_STUD_90D_SGL_STD_001", skuCode:"TR_STUD_90D_SGL_STD_001", countryCode:"TR", countryName:"Turkey",                purpose:"student", validityDays:180, stayDays:90, processingMode:"evisa", processingSpeed:"standard", processingTimeDays:6, minLeadTimeDays:7, basePrice:{currency:"AED",amount:524}, ctaUrl:"/visa/tr-student-standard",         isActive:true },
-  { _id:"TR_STUD_90D_SGL_EXP_001", skuCode:"TR_STUD_90D_SGL_EXP_001", countryCode:"TR", countryName:"Turkey",                purpose:"student", validityDays:180, stayDays:90, processingMode:"evisa", processingSpeed:"express",  processingTimeDays:4, minLeadTimeDays:5, basePrice:{currency:"AED",amount:574}, ctaUrl:"/visa/tr-student-express",          isActive:true }
+  { _id:"AE_TOUR_30D_SGL_STD_001", skuCode:"AE_TOUR_30D_SGL_STD_001", countryCode:"AE", countryName:"United Arab Emirates", purpose:"tourist", processingSpeed:"standard", processingTimeDays:3, minLeadTimeDays:2, validityDays:30, stayDays:30, basePrice:{currency:"AED",amount:299}, ctaUrl:"/visa/ae-tourist-single-standard", isActive:true },
+  { _id:"AE_TOUR_30D_SGL_EXP_001", skuCode:"AE_TOUR_30D_SGL_EXP_001", countryCode:"AE", countryName:"United Arab Emirates", purpose:"tourist", processingSpeed:"express",  processingTimeDays:1, minLeadTimeDays:1, validityDays:30, stayDays:30, basePrice:{currency:"AED",amount:339}, ctaUrl:"/visa/ae-tourist-single-express",  isActive:true },
+  { _id:"AE_STUD_90D_SGL_STD_001", skuCode:"AE_STUD_90D_SGL_STD_001", countryCode:"AE", countryName:"United Arab Emirates", purpose:"student", processingSpeed:"standard", processingTimeDays:5, minLeadTimeDays:7, validityDays:180,stayDays:90, basePrice:{currency:"AED",amount:499}, ctaUrl:"/visa/ae-student-standard",         isActive:true },
+  { _id:"AE_STUD_90D_SGL_EXP_001", skuCode:"AE_STUD_90D_SGL_EXP_001", countryCode:"AE", countryName:"United Arab Emirates", purpose:"student", processingSpeed:"express",  processingTimeDays:3, minLeadTimeDays:5, validityDays:180,stayDays:90, basePrice:{currency:"AED",amount:549}, ctaUrl:"/visa/ae-student-express",          isActive:true },
+  { _id:"SA_TOUR_30D_SGL_STD_001", skuCode:"SA_TOUR_30D_SGL_STD_001", countryCode:"SA", countryName:"Saudi Arabia",          purpose:"tourist", processingSpeed:"standard", processingTimeDays:3, minLeadTimeDays:2, validityDays:30, stayDays:30, basePrice:{currency:"AED",amount:309}, ctaUrl:"/visa/sa-tourist-single-standard", isActive:true },
+  { _id:"SA_TOUR_30D_SGL_EXP_001", skuCode:"SA_TOUR_30D_SGL_EXP_001", countryCode:"SA", countryName:"Saudi Arabia",          purpose:"tourist", processingSpeed:"express",  processingTimeDays:1, minLeadTimeDays:1, validityDays:30, stayDays:30, basePrice:{currency:"AED",amount:349}, ctaUrl:"/visa/sa-tourist-single-express",  isActive:true },
+  { _id:"SA_STUD_90D_SGL_STD_001", skuCode:"SA_STUD_90D_SGL_STD_001", countryCode:"SA", countryName:"Saudi Arabia",          purpose:"student", processingSpeed:"standard", processingTimeDays:6, minLeadTimeDays:7, validityDays:180,stayDays:90, basePrice:{currency:"AED",amount:514}, ctaUrl:"/visa/sa-student-standard",         isActive:true },
+  { _id:"SA_STUD_90D_SGL_EXP_001", skuCode:"SA_STUD_90D_SGL_EXP_001", countryCode:"SA", countryName:"Saudi Arabia",          purpose:"student", processingSpeed:"express",  processingTimeDays:4, minLeadTimeDays:5, validityDays:180,stayDays:90, basePrice:{currency:"AED",amount:564}, ctaUrl:"/visa/sa-student-express",          isActive:true },
+  { _id:"TR_TOUR_30D_SGL_STD_001", skuCode:"TR_TOUR_30D_SGL_STD_001", countryCode:"TR", countryName:"Turkey",                purpose:"tourist", processingSpeed:"standard", processingTimeDays:4, minLeadTimeDays:2, validityDays:30, stayDays:30, basePrice:{currency:"AED",amount:319}, ctaUrl:"/visa/tr-tourist-single-standard", isActive:true },
+  { _id:"TR_TOUR_30D_SGL_EXP_001", skuCode:"TR_TOUR_30D_SGL_EXP_001", countryCode:"TR", countryName:"Turkey",                purpose:"tourist", processingSpeed:"express",  processingTimeDays:2, minLeadTimeDays:1, validityDays:30, stayDays:30, basePrice:{currency:"AED",amount:359}, ctaUrl:"/visa/tr-tourist-single-express",  isActive:true },
+  { _id:"TR_STUD_90D_SGL_STD_001", skuCode:"TR_STUD_90D_SGL_STD_001", countryCode:"TR", countryName:"Turkey",                purpose:"student", processingSpeed:"standard", processingTimeDays:6, minLeadTimeDays:7, validityDays:180,stayDays:90, basePrice:{currency:"AED",amount:524}, ctaUrl:"/visa/tr-student-standard",         isActive:true },
+  { _id:"TR_STUD_90D_SGL_EXP_001", skuCode:"TR_STUD_90D_SGL_EXP_001", countryCode:"TR", countryName:"Turkey",                purpose:"student", processingSpeed:"express",  processingTimeDays:4, minLeadTimeDays:5, validityDays:180,stayDays:90, basePrice:{currency:"AED",amount:574}, ctaUrl:"/visa/tr-student-express",          isActive:true }
 ];
 
 const DESTINATION = [
@@ -60,12 +56,12 @@ const DESTINATION_MARKET = [
     ],
     visaModeRules:[
       {ruleId:"AE_VMR_001", priority:30,  conditions:{nationalityIn:["IN","PH","PK"], residencyCountryIn:["AE","SA","QA","KW","BH","OM"], hasVisaOrPermitIn:["SCHENGEN"]}, visaMode:"evisa",          applicableSkuCodes:["AE_TOUR_30D_SGL_STD_001","AE_TOUR_30D_SGL_EXP_001"]},
-      {ruleId:"AE_VMR_002", priority:100, conditions:{nationalityIn:["NG"]},                                                                                               visaMode:"not_applicable", applicableSkuCodes:["AE_TOUR_30D_SGL_STD_001","AE_TOUR_30D_SGL_EXP_001"]}
+      {ruleId:"AE_VMR_002", priority:100, conditions:{nationalityIn:["NG"]},                                                                                              visaMode:"not_applicable", applicableSkuCodes:["AE_TOUR_30D_SGL_STD_001","AE_TOUR_30D_SGL_EXP_001"]}
     ],
     documentRules:[
-      {ruleId:"AE_DR_001", priority:50, conditions:{nationalityIn:["IN"]},                                                    additionalDocuments:[{docCode:"bank_statement",mandatory:true,notes:"Last 3 months"}],                              applicableSkuCodes:["AE_TOUR_30D_SGL_STD_001","AE_TOUR_30D_SGL_EXP_001","AE_STUD_90D_SGL_STD_001","AE_STUD_90D_SGL_EXP_001"]},
-      {ruleId:"AE_DR_002", priority:60, conditions:{nationalityIn:["IN"], residencyCountryIn:["AE","SA","QA","KW","BH","OM"]}, removeDocuments:["bank_statement"],                                                                               applicableSkuCodes:["AE_TOUR_30D_SGL_STD_001","AE_TOUR_30D_SGL_EXP_001","AE_STUD_90D_SGL_STD_001","AE_STUD_90D_SGL_EXP_001"]},
-      {ruleId:"AE_DR_003", priority:70, conditions:{stayingWithFamily:true},                                                  setMandatory:[{docCode:"hotel_booking",mandatory:false,notes:"Not needed if staying with family"}],                 applicableSkuCodes:["AE_TOUR_30D_SGL_STD_001","AE_TOUR_30D_SGL_EXP_001","AE_STUD_90D_SGL_STD_001","AE_STUD_90D_SGL_EXP_001"]}
+      {ruleId:"AE_DR_001", priority:50, conditions:{nationalityIn:["IN"]},                                                    additionalDocuments:[{docCode:"bank_statement",mandatory:true,notes:"Last 3 months"}],                             applicableSkuCodes:["AE_TOUR_30D_SGL_STD_001","AE_TOUR_30D_SGL_EXP_001","AE_STUD_90D_SGL_STD_001","AE_STUD_90D_SGL_EXP_001"]},
+      {ruleId:"AE_DR_002", priority:60, conditions:{nationalityIn:["IN"], residencyCountryIn:["AE","SA","QA","KW","BH","OM"]}, removeDocuments:["bank_statement"],                                                                              applicableSkuCodes:["AE_TOUR_30D_SGL_STD_001","AE_TOUR_30D_SGL_EXP_001","AE_STUD_90D_SGL_STD_001","AE_STUD_90D_SGL_EXP_001"]},
+      {ruleId:"AE_DR_003", priority:70, conditions:{stayingWithFamily:true},                                                  setMandatory:[{docCode:"hotel_booking",mandatory:false,notes:"Not needed if staying with family"}],                applicableSkuCodes:["AE_TOUR_30D_SGL_STD_001","AE_TOUR_30D_SGL_EXP_001","AE_STUD_90D_SGL_STD_001","AE_STUD_90D_SGL_EXP_001"]}
     ],
     pricingAdjustments:[
       {ruleId:"AE_PA_001", priority:40, conditions:{residencyCountryIn:["AE","SA","QA","KW","BH","OM"]}, adjustment:{type:"add_amount",currency:"AED",value:17}, applicableSkuCodes:["AE_TOUR_30D_SGL_STD_001","AE_TOUR_30D_SGL_EXP_001","AE_STUD_90D_SGL_STD_001","AE_STUD_90D_SGL_EXP_001"]}
@@ -82,9 +78,9 @@ const DESTINATION_MARKET = [
       {ruleId:"SA_VMR_001", priority:50, conditions:{residencyCountryIn:["AE","SA","QA","KW","BH","OM"]}, visaMode:"evisa", applicableSkuCodes:["SA_TOUR_30D_SGL_STD_001","SA_TOUR_30D_SGL_EXP_001"]}
     ],
     documentRules:[
-      {ruleId:"SA_DR_001", priority:40, conditions:{nationalityIn:["PK"]},                           additionalDocuments:[{docCode:"invitation_letter",mandatory:true,notes:"From host or sponsor"}],                    applicableSkuCodes:["SA_TOUR_30D_SGL_STD_001","SA_TOUR_30D_SGL_EXP_001","SA_STUD_90D_SGL_STD_001","SA_STUD_90D_SGL_EXP_001"]},
-      {ruleId:"SA_DR_002", priority:80, conditions:{},                                               additionalDocuments:[{docCode:"university_admission_letter",mandatory:true,notes:"Issued by the university"}],      applicableSkuCodes:["SA_STUD_90D_SGL_STD_001","SA_STUD_90D_SGL_EXP_001"]},
-      {ruleId:"SA_DR_003", priority:90, conditions:{nationalityIn:["PH"], residencyCountryIn:["IN"]},additionalDocuments:[{docCode:"employment_letter_v2",mandatory:true,notes:"Specific format required"}],             applicableSkuCodes:["SA_TOUR_30D_SGL_STD_001","SA_TOUR_30D_SGL_EXP_001"]}
+      {ruleId:"SA_DR_001", priority:40, conditions:{nationalityIn:["PK"]},                           additionalDocuments:[{docCode:"invitation_letter",mandatory:true,notes:"From host or sponsor"}],                   applicableSkuCodes:["SA_TOUR_30D_SGL_STD_001","SA_TOUR_30D_SGL_EXP_001","SA_STUD_90D_SGL_STD_001","SA_STUD_90D_SGL_EXP_001"]},
+      {ruleId:"SA_DR_002", priority:80, conditions:{},                                               additionalDocuments:[{docCode:"university_admission_letter",mandatory:true,notes:"Issued by the university"}],     applicableSkuCodes:["SA_STUD_90D_SGL_STD_001","SA_STUD_90D_SGL_EXP_001"]},
+      {ruleId:"SA_DR_003", priority:90, conditions:{nationalityIn:["PH"], residencyCountryIn:["IN"]},additionalDocuments:[{docCode:"employment_letter_v2",mandatory:true,notes:"Specific format required"}],            applicableSkuCodes:["SA_TOUR_30D_SGL_STD_001","SA_TOUR_30D_SGL_EXP_001"]}
     ],
     pricingAdjustments:[
       {ruleId:"SA_PA_001", priority:30, conditions:{travelGroupIn:["family"]}, adjustment:{type:"add_amount",currency:"AED",value:25}, applicableSkuCodes:["SA_TOUR_30D_SGL_STD_001","SA_TOUR_30D_SGL_EXP_001","SA_STUD_90D_SGL_STD_001","SA_STUD_90D_SGL_EXP_001"]}
@@ -102,8 +98,8 @@ const DESTINATION_MARKET = [
       {ruleId:"TR_VMR_001", priority:60, conditions:{hasVisaOrPermitIn:["SCHENGEN"]}, visaMode:"evisa", applicableSkuCodes:["TR_TOUR_30D_SGL_STD_001","TR_TOUR_30D_SGL_EXP_001"]}
     ],
     documentRules:[
-      {ruleId:"TR_DR_001", priority:70, conditions:{residencyCountryIn:["AE"]}, modifyDocuments:[{docCode:"bank_statement",notes:"Last 3 months"}],                                    applicableSkuCodes:["TR_TOUR_30D_SGL_STD_001","TR_TOUR_30D_SGL_EXP_001","TR_STUD_90D_SGL_STD_001","TR_STUD_90D_SGL_EXP_001"]},
-      {ruleId:"TR_DR_002", priority:80, conditions:{},                          additionalDocuments:[{docCode:"education_certificate",mandatory:true,notes:"Highest qualification"}],  applicableSkuCodes:["TR_STUD_90D_SGL_STD_001","TR_STUD_90D_SGL_EXP_001"]}
+      {ruleId:"TR_DR_001", priority:70, conditions:{residencyCountryIn:["AE"]}, modifyDocuments:[{docCode:"bank_statement",notes:"Last 3 months"}],                                   applicableSkuCodes:["TR_TOUR_30D_SGL_STD_001","TR_TOUR_30D_SGL_EXP_001","TR_STUD_90D_SGL_STD_001","TR_STUD_90D_SGL_EXP_001"]},
+      {ruleId:"TR_DR_002", priority:80, conditions:{},                          additionalDocuments:[{docCode:"education_certificate",mandatory:true,notes:"Highest qualification"}], applicableSkuCodes:["TR_STUD_90D_SGL_STD_001","TR_STUD_90D_SGL_EXP_001"]}
     ],
     pricingAdjustments:[
       {ruleId:"TR_PA_001", priority:50, conditions:{residencyCountryIn:["AE"]}, adjustment:{type:"subtract_amount",currency:"AED",value:13}, applicableSkuCodes:["TR_TOUR_30D_SGL_STD_001","TR_TOUR_30D_SGL_EXP_001","TR_STUD_90D_SGL_STD_001","TR_STUD_90D_SGL_EXP_001"]}
@@ -111,158 +107,157 @@ const DESTINATION_MARKET = [
   }
 ];
 
-const KNOWLEDGE_SOURCES = [
-  {_id:"SRC_AE_001", destinationCountryCode:"AE", chunkId:"AE_CH_001", text:"Baseline docs include passport copy and photograph. Some cases require bank statement.", trustScore:0.9},
-  {_id:"SRC_SA_001", destinationCountryCode:"SA", chunkId:"SA_CH_001", text:"Tourist evisa available for eligible residents. Document rules vary by traveler profile.", trustScore:0.9},
-  {_id:"SRC_TR_001", destinationCountryCode:"TR", chunkId:"TR_CH_001", text:"Travel insurance and bank statement are common requirements. Schengen holders may use evisa for tourist.", trustScore:0.9}
+// ════════════════════════════════════════════════════════════
+//  DESTINATION KEYWORD MAP
+//  Keys ordered so left-to-right scan finds correct country
+// ════════════════════════════════════════════════════════════
+
+const DEST_KEYWORDS = [
+  { code:"AE", words:["united arab emirates","uae","dubai","abu dhabi","sharjah","emirates"] },
+  { code:"SA", words:["saudi arabia","saudi","riyadh","jeddah","mecca","medina","ksa"] },
+  { code:"TR", words:["turkey","türkiye","istanbul","ankara","antalya","cappadocia"] },
+  { code:"GE", words:["georgia","tbilisi","batumi"] },
+  { code:"AZ", words:["azerbaijan","baku"] },
+  { code:"TH", words:["thailand","bangkok","phuket","pattaya","chiang mai"] },
+  { code:"SG", words:["singapore"] },
+  { code:"ID", words:["indonesia","bali","jakarta","lombok"] },
+  { code:"MY", words:["malaysia","kuala lumpur"," kl "] },
+  { code:"LK", words:["sri lanka","colombo","kandy"] },
+  { code:"MV", words:["maldives"] },
+  { code:"JP", words:["japan","tokyo","osaka","kyoto"] },
+  { code:"KR", words:["south korea","korea","seoul","busan"] },
+  { code:"IT", words:["italy","rome","milan","venice","florence"] },
+  { code:"ES", words:["spain","madrid","barcelona","seville"] }
 ];
 
-// ════════════════════════════════════════════════════════════
-//  DESTINATION KEYWORD DETECTION
-//  Maps words/phrases in a message to a country code
-// ════════════════════════════════════════════════════════════
-
-const DEST_KEYWORDS = {
-  AE: ["uae","dubai","abu dhabi","united arab emirates","emirates"],
-  SA: ["saudi","saudi arabia","riyadh","jeddah","mecca","medina","ksa"],
-  TR: ["turkey","türkiye","istanbul","ankara","antalya"],
-  GE: ["georgia","tbilisi","batumi"],
-  AZ: ["azerbaijan","baku"],
-  TH: ["thailand","bangkok","phuket","pattaya","chiang mai"],
-  SG: ["singapore"],
-  ID: ["indonesia","bali","jakarta","lombok"],
-  MY: ["malaysia","kuala lumpur","kl","langkawi"],
-  LK: ["sri lanka","colombo","kandy"],
-  MV: ["maldives","malé"],
-  JP: ["japan","tokyo","osaka","kyoto","japan"],
-  KR: ["south korea","korea","seoul","busan"],
-  IT: ["italy","rome","milan","venice","florence"],
-  ES: ["spain","madrid","barcelona","seville"]
-};
-
-function detectDestination(message) {
+// Returns the FIRST country mentioned in the message (left-to-right)
+// Skips residencyCountry and nationality — they are context, not destination
+function detectDestination(message, skipCodes) {
   if (!message) return null;
-  const lower = message.toLowerCase();
-  for (const [code, keywords] of Object.entries(DEST_KEYWORDS)) {
-    if (keywords.some(k => lower.includes(k))) return code;
+  const lower = " " + message.toLowerCase() + " ";
+  const skip = skipCodes || [];
+
+  // Two passes: first try excluding residency/nationality matches,
+  // then fall back to including them if nothing else found
+  for (const excludeSkip of [true, false]) {
+    let earliest = null;
+    let earliestPos = Infinity;
+
+    for (const entry of DEST_KEYWORDS) {
+      if (excludeSkip && skip.includes(entry.code)) continue;
+      for (const word of entry.words) {
+        const pos = lower.indexOf(word);
+        if (pos !== -1 && pos < earliestPos) {
+          earliestPos = pos;
+          earliest = entry.code;
+        }
+      }
+    }
+    if (earliest) return earliest;
   }
   return null;
 }
 
 // ════════════════════════════════════════════════════════════
-//  INTENT DETECTION
+//  INTENT HELPERS
 // ════════════════════════════════════════════════════════════
 
-function detectIntent(message) {
-  if (!message) return "visa_query";
+function detectPurpose(message) {
   const lower = message.toLowerCase();
+  if (lower.includes("student") || lower.includes("study") || lower.includes("university") || lower.includes("education")) return "student";
+  return "tourist";
+}
 
-  // recommendation signals
-  if (lower.includes("recommend") || lower.includes("suggest") || lower.includes("where should") ||
-      lower.includes("best place") || lower.includes("where to go") || lower.includes("destination") ||
-      lower.includes("travel recommendation") || lower.includes("where can i")) {
-    return "recommendation";
-  }
+function detectSpeed(message) {
+  const lower = message.toLowerCase();
+  const wantsExpress  = lower.includes("express") || lower.includes("fastest") || lower.includes("urgent") || lower.includes("fast track");
+  const wantsStandard = lower.includes("standard");
+  if (wantsExpress && !wantsStandard) return "express";
+  if (wantsStandard && !wantsExpress) return "standard";
+  return "both";
+}
 
-  // document signals
-  if (lower.includes("document") || lower.includes("requirement") || lower.includes("what do i need") ||
-      lower.includes("papers") || lower.includes("paperwork")) {
-    return "documents";
-  }
+function isCheapestQuery(message) {
+  const lower = message.toLowerCase();
+  return lower.includes("cheap") || lower.includes("cheapest") || lower.includes("lowest price") ||
+         lower.includes("affordable") || lower.includes("budget") || lower.includes("low cost") ||
+         lower.includes("inexpensive");
+}
 
-  // price signals
-  if (lower.includes("cost") || lower.includes("price") || lower.includes("fee") ||
-      lower.includes("how much") || lower.includes("charges")) {
-    return "pricing";
-  }
+function isFastTravelQuery(message) {
+  const lower = message.toLowerCase();
+  return lower.includes("next week") || lower.includes("fast process") || lower.includes("quick process") ||
+         lower.includes("travel soon") || lower.includes("short notice");
+}
 
-  // processing time signals
-  if (lower.includes("how long") || lower.includes("processing time") || lower.includes("days") ||
-      lower.includes("duration") || lower.includes("fast") || lower.includes("quick") || lower.includes("express")) {
-    return "processing";
-  }
-
-  // eligibility / general
-  return "visa_query";
+function isRecommendationQuery(message) {
+  const lower = message.toLowerCase();
+  return lower.includes("recommend") || lower.includes("suggest") || lower.includes("inspire") ||
+         lower.includes("where should") || lower.includes("where can i") || lower.includes("destinations") ||
+         lower.includes("best place") || lower.includes("places to visit") || lower.includes("places to travel") ||
+         lower.includes("travel to") || lower.includes("i can travel");
 }
 
 // ════════════════════════════════════════════════════════════
-//  CONDITION MATCHING
+//  CONDITION MATCHER
 // ════════════════════════════════════════════════════════════
 
 function matchCondition(conditions, ctx) {
   if (!conditions || Object.keys(conditions).length === 0) return true;
-
-  if (conditions.nationalityIn) {
-    if (!conditions.nationalityIn.includes(ctx.nationality)) return false;
-  }
-  if (conditions.residencyCountryIn) {
-    if (!conditions.residencyCountryIn.includes(ctx.residencyCountry)) return false;
-  }
+  if (conditions.nationalityIn && !conditions.nationalityIn.includes(ctx.nationality)) return false;
+  if (conditions.residencyCountryIn && !conditions.residencyCountryIn.includes(ctx.residencyCountry)) return false;
   if (conditions.hasVisaOrPermitIn) {
-    const permits = Array.isArray(ctx.hasVisaOrPermit)
-      ? ctx.hasVisaOrPermit
-      : (ctx.hasVisaOrPermit ? [ctx.hasVisaOrPermit] : []);
+    const permits = Array.isArray(ctx.hasVisaOrPermit) ? ctx.hasVisaOrPermit : (ctx.hasVisaOrPermit ? [ctx.hasVisaOrPermit] : []);
     if (!conditions.hasVisaOrPermitIn.some(p => permits.includes(p))) return false;
   }
-  if (conditions.travelGroupIn) {
-    if (!conditions.travelGroupIn.includes(ctx.travelGroup)) return false;
-  }
-  if (conditions.stayingWithFamily !== undefined) {
-    if (conditions.stayingWithFamily !== ctx.stayingWithFamily) return false;
-  }
+  if (conditions.travelGroupIn && !conditions.travelGroupIn.includes(ctx.travelGroup)) return false;
+  if (conditions.stayingWithFamily !== undefined && conditions.stayingWithFamily !== ctx.stayingWithFamily) return false;
   return true;
 }
 
 // ════════════════════════════════════════════════════════════
-//  CORE RULES ENGINE
+//  RULES ENGINE  — returns enriched result with full trace
 // ════════════════════════════════════════════════════════════
 
-function runRulesEngine(destCode, ctx) {
+function runRulesEngine(destCode, ctx, speedFilter) {
   const cfg = DESTINATION_MARKET.find(c => c.destinationCountryCode === destCode);
   if (!cfg) return null;
 
-  const refs = [{ collection:"destinationmarket", id:cfg._id }];
+  const matchedRuleIds   = [];  // ALL rules that matched (for trace.matchedRules)
+  const appliedAdjustments = []; // pricing adjustments (for trace.appliedAdjustments)
 
-  // Step 1: filter SKUs
-  const purpose = ctx.travelPurpose || "tourist";
-  const allSkus = VISA_SKU.filter(s => s.countryCode === destCode && s.isActive && s.purpose === purpose);
+  // Step 1: filter SKUs by purpose and speed
+  let allSkus = VISA_SKU.filter(s => s.countryCode === destCode && s.isActive && s.purpose === ctx.travelPurpose);
+  if (speedFilter === "express")  allSkus = allSkus.filter(s => s.processingSpeed === "express");
+  if (speedFilter === "standard") allSkus = allSkus.filter(s => s.processingSpeed === "standard");
 
-  // Step 2: visa mode rules — descending priority, first match wins
-  const sortedVMR = [...cfg.visaModeRules].sort((a,b) => b.priority - a.priority);
+  // Step 2: visa mode rules (descending priority, first match wins)
   const notApplicable = new Set();
-
+  const sortedVMR = [...cfg.visaModeRules].sort((a,b) => b.priority - a.priority);
   for (const rule of sortedVMR) {
     if (matchCondition(rule.conditions, ctx)) {
-      refs.push({collection:"destinationmarket", id:cfg._id, field:rule.ruleId});
+      matchedRuleIds.push(rule.ruleId);
       if (rule.visaMode === "not_applicable") {
         rule.applicableSkuCodes.forEach(c => notApplicable.add(c));
       }
-      break; // first match wins
+      break;
     }
   }
 
   const eligibleSkus = allSkus.filter(s => !notApplicable.has(s.skuCode));
-  const eligibility = eligibleSkus.length === 0 && allSkus.length > 0 ? "not_eligible" : "eligible";
+  const isEligible   = !(eligibleSkus.length === 0 && allSkus.length > 0);
 
-  // Step 3: documents — start with minimum, apply ALL matching rules
+  // Step 3: documents — ascending priority (lower runs first, higher overrides)
   let docs = cfg.minimumDocuments.map(d => ({...d}));
-  const sortedDR = [...cfg.documentRules].sort((a,b) => a.priority - b.priority); // ascending: low priority first, high priority overrides last
-
+  const sortedDR = [...cfg.documentRules].sort((a,b) => a.priority - b.priority);
   for (const rule of sortedDR) {
-    // check if any eligible sku is in this rule's scope
-    const inScope = !rule.applicableSkuCodes ||
-      eligibleSkus.some(s => rule.applicableSkuCodes.includes(s.skuCode));
+    const inScope = eligibleSkus.some(s => rule.applicableSkuCodes.includes(s.skuCode));
     if (!inScope) continue;
     if (!matchCondition(rule.conditions, ctx)) continue;
-
-    refs.push({collection:"destinationmarket", id:cfg._id, field:rule.ruleId});
-
+    matchedRuleIds.push(rule.ruleId);
     if (rule.additionalDocuments) {
       for (const ad of rule.additionalDocuments) {
-        if (!docs.find(d => d.docCode === ad.docCode)) {
-          docs.push({...ad});
-        }
+        if (!docs.find(d => d.docCode === ad.docCode)) docs.push({...ad});
       }
     }
     if (rule.removeDocuments) {
@@ -282,281 +277,252 @@ function runRulesEngine(destCode, ctx) {
     }
   }
 
-  // Step 4: pricing for each eligible SKU
+  // Step 4: pricing + collect pricing adjustments
   const sortedPA = [...cfg.pricingAdjustments].sort((a,b) => b.priority - a.priority);
-  const recommendedSkus = eligibleSkus.map(sku => {
-    refs.push({collection:"visasku", id:sku.skuCode});
+  const pricedSkus = eligibleSkus.map(sku => {
     let price = sku.basePrice.amount;
     for (const pa of sortedPA) {
       if (!pa.applicableSkuCodes.includes(sku.skuCode)) continue;
       if (!matchCondition(pa.conditions, ctx)) continue;
-      refs.push({collection:"destinationmarket", id:cfg._id, field:pa.ruleId});
+      // Add to matchedRuleIds (pricing rules are also matched rules)
+      if (!matchedRuleIds.includes(pa.ruleId)) matchedRuleIds.push(pa.ruleId);
+      // Add to appliedAdjustments
+      if (!appliedAdjustments.find(a => a.ruleId === pa.ruleId)) {
+        appliedAdjustments.push({ruleId: pa.ruleId, value: pa.adjustment.value});
+      }
       price += pa.adjustment.type === "add_amount" ? pa.adjustment.value : -pa.adjustment.value;
     }
-    return {
-      skuCode: sku.skuCode,
-      processingSpeed: sku.processingSpeed,
-      processingTimeDays: sku.processingTimeDays,
-      finalPrice: {currency:"AED", amount:price},
-      ctaUrl: sku.ctaUrl
-    };
+    return {...sku, finalPrice: {currency:"AED", amount: price}};
   });
 
-  // Deduplicate refs
-  const seen = new Set();
-  const uniqueRefs = refs.filter(r => {
-    const k = r.collection + r.id + (r.field || "");
-    if (seen.has(k)) return false;
-    seen.add(k); return true;
-  });
+  // Primary SKU (standard preferred, else first)
+  const primarySku = pricedSkus.find(s => s.processingSpeed === "standard") || pricedSkus[0];
 
-  return { eligibility, recommendedSkus, requiredDocuments:docs, references:uniqueRefs, cfg };
+  return {
+    isEligible,
+    pricedSkus,
+    docs,
+    primarySku,
+    cfg,
+    matchedRuleIds,
+    appliedAdjustments
+  };
 }
 
 // ════════════════════════════════════════════════════════════
-//  HUMAN-READABLE ANSWER BUILDER
+//  BUILD VISA RESPONSE
 // ════════════════════════════════════════════════════════════
 
-const DOC_NAMES = {
-  passport_copy:             "passport copy (valid 6+ months)",
-  photograph:                "photograph (white background)",
-  flight_itinerary:          "confirmed flight itinerary",
-  hotel_booking:             "hotel booking",
-  bank_statement:            "bank statement",
-  travel_insurance:          "travel insurance",
-  invitation_letter:         "invitation letter from host/sponsor",
-  university_admission_letter:"university admission letter",
-  education_certificate:     "education certificate (highest qualification)",
-  employment_letter_v2:      "employment letter (specific format required)"
-};
-
-function buildAnswer(destCode, ctx, engineResult, intent) {
+function buildVisaResponse(destCode, ctx, speedFilter, startMs) {
   const dest = DESTINATION.find(d => d.destinationCountryCode === destCode);
   const destName = dest ? dest.destinationCountryName : destCode;
-  const { eligibility, recommendedSkus, requiredDocuments } = engineResult;
 
-  if (eligibility === "not_eligible") {
-    return `Based on your profile (nationality: ${ctx.nationality}), you are not eligible for the ${destName} eVisa through the Musafir platform. Nigerian passport holders are not eligible for the UAE tourist eVisa. Please contact your nearest embassy for alternative options.`;
+  // No SKUs in POC for this destination
+  if (dest && !dest.hasSkusInPoc) {
+    return makeResponse(
+      `${destName} is a recommended destination for ${dest.interests.join(", ")} travellers (popularity: ${Math.round(dest.popularityScore*100)}%). Visa booking for ${destName} is not available in the current Musafir system. Please contact Musafir support for assistance.`,
+      { destinations:[destCode], skuCodes:[], documents:[], processingTimeDays:0, minLeadTimeDays:0 },
+      { retrieved:{skuCodes:[],configIds:[]}, matchedRules:[], appliedAdjustments:[] },
+      startMs
+    );
   }
 
-  const std = recommendedSkus.find(s => s.processingSpeed === "standard");
-  const exp = recommendedSkus.find(s => s.processingSpeed === "express");
+  const result = runRulesEngine(destCode, ctx, speedFilter);
+  if (!result) return refusal(startMs);
 
-  const mandatoryDocs = requiredDocuments.filter(d => d.mandatory);
-  const optionalDocs  = requiredDocuments.filter(d => !d.mandatory);
+  const { isEligible, pricedSkus, docs, primarySku, cfg, matchedRuleIds, appliedAdjustments } = result;
 
-  const docList = mandatoryDocs.map(d => DOC_NAMES[d.docCode] ? `${DOC_NAMES[d.docCode]} (${d.notes})` : `${d.docCode} (${d.notes})`).join(", ");
-
-  let answer = `You are eligible for the ${destName} ${ctx.travelPurpose || "tourist"} eVisa. `;
-
-  if (intent === "documents") {
-    answer = `Documents required for ${destName} ${ctx.travelPurpose || "tourist"} eVisa: ${docList}.`;
-    if (optionalDocs.length > 0) {
-      answer += ` Optional: ${optionalDocs.map(d => DOC_NAMES[d.docCode] || d.docCode).join(", ")}.`;
-    }
-    return answer;
+  // Answer text
+  let answerText;
+  if (!isEligible) {
+    answerText = `Based on your profile (nationality: ${ctx.nationality}), you are not eligible for the ${destName} eVisa through the Musafir platform.`;
+  } else {
+    const std = pricedSkus.find(s => s.processingSpeed === "standard");
+    const exp = pricedSkus.find(s => s.processingSpeed === "express");
+    const mandatoryDocs = docs.filter(d => d.mandatory).map(d => d.docCode).join(", ");
+    answerText = `You are eligible for the ${destName} ${ctx.travelPurpose} eVisa. `;
+    if (std) answerText += `Standard: ${std.processingTimeDays} days at AED ${std.finalPrice.amount}. `;
+    if (exp) answerText += `Express: ${exp.processingTimeDays} day${exp.processingTimeDays > 1 ? "s" : ""} at AED ${exp.finalPrice.amount}. `;
+    answerText += `Required documents: ${mandatoryDocs}.`;
+    const optDocs = docs.filter(d => !d.mandatory);
+    if (optDocs.length > 0) answerText += ` Optional: ${optDocs.map(d => d.docCode).join(", ")}.`;
   }
 
-  if (intent === "pricing") {
-    answer = `${destName} ${ctx.travelPurpose || "tourist"} eVisa pricing: `;
-    if (std) answer += `Standard processing (${std.processingTimeDays} days) — AED ${std.finalPrice.amount}. `;
-    if (exp) answer += `Express processing (${exp.processingTimeDays} day${exp.processingTimeDays > 1 ? "s" : ""}) — AED ${exp.finalPrice.amount}.`;
-    return answer;
-  }
-
-  if (intent === "processing") {
-    answer = `${destName} eVisa processing times: `;
-    if (std) answer += `Standard — ${std.processingTimeDays} days (AED ${std.finalPrice.amount}). `;
-    if (exp) answer += `Express — ${exp.processingTimeDays} day${exp.processingTimeDays > 1 ? "s" : ""} (AED ${exp.finalPrice.amount}).`;
-    return answer;
-  }
-
-  // Full visa_query answer
-  if (std) answer += `Standard processing takes ${std.processingTimeDays} days at AED ${std.finalPrice.amount}. `;
-  if (exp) answer += `Express processing takes ${exp.processingTimeDays} day${exp.processingTimeDays > 1 ? "s" : ""} at AED ${exp.finalPrice.amount}. `;
-  answer += `Required documents: ${docList}.`;
-  if (optionalDocs.length > 0) {
-    answer += ` Optional: ${optionalDocs.map(d => DOC_NAMES[d.docCode] || d.docCode).join(", ")}.`;
-  }
-
-  return answer;
+  return makeResponse(
+    answerText,
+    {
+      destinations: [destCode],
+      skuCodes:     pricedSkus.map(s => s.skuCode),
+      documents:    docs.map(d => ({docCode: d.docCode, mandatory: d.mandatory, notes: d.notes})),
+      processingTimeDays: primarySku ? primarySku.processingTimeDays : 0,
+      minLeadTimeDays:    primarySku ? primarySku.minLeadTimeDays    : 0
+    },
+    {
+      retrieved: {
+        skuCodes:   pricedSkus.map(s => s.skuCode),
+        configIds:  [cfg._id]
+      },
+      matchedRules:       matchedRuleIds.map(r => ({ruleId: r})),
+      appliedAdjustments: appliedAdjustments
+    },
+    startMs
+  );
 }
 
 // ════════════════════════════════════════════════════════════
-//  RECOMMENDATION ENGINE
+//  BUILD RECOMMENDATION RESPONSE
 // ════════════════════════════════════════════════════════════
 
-function buildRecommendations(interests, ctx) {
-  const refs = [];
+function buildRecommendationResponse(ctx, message, startMs) {
+  const interests   = ctx.interests || [];
+  const travelInDays = ctx.travelInDays || null;
+  const cheap       = isCheapestQuery(message);
+  const fastTravel  = isFastTravelQuery(message) || (travelInDays && travelInDays <= 14);
 
-  // If interests provided, filter and rank by matching interests + popularity
+  // Start with all destinations
   let candidates = [...DESTINATION];
 
-  if (interests && interests.length > 0) {
-    // Score each destination by how many interests match
+  // Filter by travelInDays if applicable
+  if (fastTravel && travelInDays) {
+    candidates = candidates.filter(d => d.minProcessingDays <= travelInDays);
+  }
+
+  // Score and sort
+  if (cheap) {
+    // Sort by price ascending
+    candidates.sort((a, b) => a.startingPrice.amount - b.startingPrice.amount);
+  } else if (interests.length > 0) {
+    // Score by interest match count, then popularity
     candidates = candidates
-      .map(d => {
-        const matchCount = interests.filter(i => d.interests.includes(i)).length;
-        return {...d, matchCount};
-      })
+      .map(d => ({ ...d, matchCount: interests.filter(i => d.interests.includes(i)).length }))
       .filter(d => d.matchCount > 0)
       .sort((a, b) => b.matchCount - a.matchCount || b.popularityScore - a.popularityScore);
   } else {
-    // No interests — rank by popularity
+    // Sort by popularity
     candidates.sort((a, b) => b.popularityScore - a.popularityScore);
   }
 
-  // Take top 5
-  const top = candidates.slice(0, 5);
+  // Collect ALL matching destination codes and all their SKUs
+  const destCodes = candidates.map(d => d.destinationCountryCode);
+  const allSkuCodes = VISA_SKU
+    .filter(s => destCodes.includes(s.countryCode) && s.isActive)
+    .map(s => s.skuCode);
+  const configIds = DESTINATION_MARKET
+    .filter(c => destCodes.includes(c.destinationCountryCode))
+    .map(c => c._id);
 
-  top.forEach(d => refs.push({collection:"destination", id:d._id}));
-
-  const lines = top.map(d => {
+  // Build answer text
+  const lines = candidates.map(d => {
     const booking = d.hasSkusInPoc
-      ? `Visa available from AED ${d.startingPrice.amount}, min ${d.minProcessingDays} days processing.`
-      : `Destination available for recommendation; visa booking not available in current system.`;
-    return `${d.destinationCountryName} (popularity: ${Math.round(d.popularityScore * 100)}%, interests: ${d.interests.join(", ")}) — ${booking}`;
+      ? `Visa from AED ${d.startingPrice.amount}, min ${d.minProcessingDays} days processing.`
+      : `Destination available; visa booking not in current system.`;
+    return `${d.destinationCountryName} (popularity: ${Math.round(d.popularityScore*100)}%, interests: ${d.interests.join(", ")}) — ${booking}`;
   });
 
-  const interestStr = interests && interests.length > 0 ? `your interests (${interests.join(", ")})` : "popularity";
-  const answer = `Top destination recommendations based on ${interestStr}:\n${lines.join("\n")}`;
+  const sortLabel = cheap ? "price" : interests.length > 0 ? `your interests (${interests.join(", ")})` : "popularity";
+  const answerText = `Recommended destinations based on ${sortLabel}:\n${lines.join("\n")}`;
 
-  return {
-    answer,
-    references: refs,
-    eligibility: "unknown",
-    recommendedSkus: [],
-    requiredDocuments: []
-  };
+  return makeResponse(
+    answerText,
+    { destinations: destCodes, skuCodes: allSkuCodes, documents: [], processingTimeDays: 0, minLeadTimeDays: 0 },
+    { retrieved: { skuCodes: allSkuCodes, configIds }, matchedRules: [], appliedAdjustments: [] },
+    startMs
+  );
 }
 
 // ════════════════════════════════════════════════════════════
-//  MAIN HANDLER
+//  RESPONSE BUILDERS
 // ════════════════════════════════════════════════════════════
 
-function processRequest(message, context) {
-  const ctx = {
-    nationality:      context.nationality      || null,
-    residencyCountry: context.residencyCountry || null,
-    hasVisaOrPermit:  context.hasVisaOrPermit  || context.hasVisa || null,
-    travelPurpose:    context.travelPurpose    || context.purpose || "tourist",
-    travelGroup:      context.travelGroup      || "solo",
-    stayingWithFamily:context.stayingWithFamily || false,
-    interests:        context.interests        || []
-  };
-
-  const intent  = detectIntent(message);
-  const destCode = detectDestination(message);
-
-  // ── Destination-specific query (ALWAYS checked first) ──────
-  // If message mentions a specific country, answer about THAT country
-  // regardless of whether the phrasing sounds like a recommendation
-  if (destCode) {
-    const dest = DESTINATION.find(d => d.destinationCountryCode === destCode);
-
-    // Destination exists but has no visa products in this POC
-    if (dest && !dest.hasSkusInPoc) {
-      return {
-        answer: `${dest.destinationCountryName} is a great destination for ${dest.interests.join(", ")} travellers (popularity score: ${Math.round(dest.popularityScore * 100)}%). Visa bookings for ${dest.destinationCountryName} are not available in the current Musafir system. Please contact Musafir support for assistance with this destination.`,
-        references: [{collection:"destination", id:dest._id}],
-        eligibility: "unknown",
-        recommendedSkus: [],
-        requiredDocuments: []
-      };
-    }
-
-    // Destination has visa products — run full rules engine
-    const result = runRulesEngine(destCode, ctx);
-    if (!result) {
-      return {
-        answer: "I can only answer questions based on the available visa dataset. This query is outside the scope of the current dataset.",
-        references: [], eligibility: "unknown", recommendedSkus: [], requiredDocuments: []
-      };
-    }
-
-    // Attach knowledge source reference
-    const ks = KNOWLEDGE_SOURCES.find(k => k.destinationCountryCode === destCode);
-    if (ks) result.references.push({collection:"knowledgesources", id:ks._id, field:ks.chunkId});
-
-    const answer = buildAnswer(destCode, ctx, result, intent);
-    return {
-      answer,
-      references:       result.references,
-      eligibility:      result.eligibility,
-      recommendedSkus:  result.recommendedSkus,
-      requiredDocuments:result.requiredDocuments
-    };
-  }
-
-  // ── No specific country mentioned — recommendation or refusal ──
-  if (intent === "recommendation" || (ctx.interests && ctx.interests.length > 0)) {
-    return buildRecommendations(ctx.interests, ctx);
-  }
-
-  // ── Nothing matched — refusal ────────────────────────────
+function makeResponse(answerText, final, trace, startMs) {
   return {
-    answer: "I can only answer questions based on the available visa dataset. This query is outside the scope of the current dataset.",
-    references: [], eligibility: "unknown", recommendedSkus: [], requiredDocuments: []
+    answerText,
+    final:  { destinations:[], skuCodes:[], documents:[], processingTimeDays:0, minLeadTimeDays:0, ...final },
+    trace:  { retrieved:{skuCodes:[],configIds:{}}, matchedRules:[], appliedAdjustments:[], ...trace },
+    meta:   { latencyMs: Date.now() - startMs }
   };
+}
+
+function refusal(startMs) {
+  return makeResponse(
+    "I can only answer questions based on the available visa dataset. This query is outside the scope of the current dataset.",
+    { destinations:[], skuCodes:[], documents:[], processingTimeDays:0, minLeadTimeDays:0 },
+    { retrieved:{skuCodes:[],configIds:[]}, matchedRules:[], appliedAdjustments:[] },
+    startMs
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  MAIN REQUEST PROCESSOR
+// ════════════════════════════════════════════════════════════
+
+function processRequest(message, context, startMs) {
+  const ctx = {
+    nationality:      context.nationality       || null,
+    residencyCountry: context.residencyCountry  || null,
+    hasVisaOrPermit:  context.hasVisaOrPermit   || context.hasVisa || [],
+    travelPurpose:    detectPurpose(message),   // detect from message first
+    travelGroup:      context.travelGroup       || "solo",
+    stayingWithFamily:context.stayingWithFamily || false,
+    interests:        context.interests         || [],
+    travelInDays:     context.travelInDays      || null
+  };
+
+  // Override travelPurpose from context if explicitly provided
+  if (context.travelPurpose) ctx.travelPurpose = context.travelPurpose;
+  if (context.purpose)       ctx.travelPurpose = context.purpose;
+
+  const destCode   = detectDestination(message, [ctx.residencyCountry, ctx.nationality].filter(Boolean));
+  const speedFilter = detectSpeed(message);
+
+  // ── 1. Specific destination mentioned → visa query ────────
+  if (destCode) {
+    return buildVisaResponse(destCode, ctx, speedFilter, startMs);
+  }
+
+  // ── 2. No destination → recommendation or refusal ─────────
+  const wantsRec = isRecommendationQuery(message) || isCheapestQuery(message) ||
+                   isFastTravelQuery(message) || (ctx.interests && ctx.interests.length > 0) ||
+                   (ctx.travelInDays && ctx.travelInDays <= 30);
+
+  if (wantsRec) {
+    return buildRecommendationResponse(ctx, message, startMs);
+  }
+
+  return refusal(startMs);
 }
 
 // ════════════════════════════════════════════════════════════
 //  ROUTES
 // ════════════════════════════════════════════════════════════
 
-// Primary endpoint — harness calls this
 app.post("/vendor/chat", (req, res) => {
-  const start = Date.now();
+  const startMs  = Date.now();
   try {
-    const message     = req.body.message     || req.body.question || "";
-    const context     = req.body.context     || req.body.userContext || {};
-
-    console.log(`[${new Date().toISOString()}] "${message.slice(0,80)}" | ctx: ${JSON.stringify(context)}`);
-
-    const result    = processRequest(message, context);
-    const latencyMs = Date.now() - start;
-
-    console.log(`[${new Date().toISOString()}] ${latencyMs}ms | eligibility: ${result.eligibility}`);
+    const message  = req.body.message  || req.body.question || "";
+    const context  = req.body.context  || req.body.userContext || {};
+    console.log(`[${new Date().toISOString()}] "${message.slice(0,80)}" | ${JSON.stringify(context)}`);
+    const result   = processRequest(message, context, startMs);
+    console.log(`[${new Date().toISOString()}] ${result.meta.latencyMs}ms | dests:${result.final.destinations}`);
     res.json(result);
-
   } catch (err) {
     console.error("Error:", err);
-    res.status(500).json({
-      answer: "An internal error occurred.",
-      references: [], eligibility: "unknown", recommendedSkus: [], requiredDocuments: []
-    });
+    res.status(500).json(refusal(startMs));
   }
 });
 
-// Alias
 app.post("/chat", (req, res) => {
   req.url = "/vendor/chat";
   app._router.handle(req, res);
 });
 
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok", market: "MUSAFIR_IN",
-    approach: "deterministic-rules-engine",
-    destinations: DESTINATION.map(d => d.destinationCountryCode),
-    skuCount: VISA_SKU.length,
-    timestamp: new Date().toISOString()
-  });
+  res.json({ status:"ok", market:"MUSAFIR_IN", approach:"deterministic-rules-engine-v2", timestamp:new Date().toISOString() });
 });
 
 app.get("/", (req, res) => {
-  res.json({
-    name: "Musafir Visa Chatbot API",
-    approach: "Pure deterministic rules engine — no AI API required",
-    endpoints: { "POST /vendor/chat": "Harness endpoint", "GET /health": "Health check" }
-  });
+  res.json({ name:"Musafir Visa API", endpoints:{"POST /vendor/chat":"main","GET /health":"health"} });
 });
-
-// ════════════════════════════════════════════════════════════
-//  START
-// ════════════════════════════════════════════════════════════
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✈  Musafir Visa API on port ${PORT} — pure rules engine, no API key needed`);
-});
+app.listen(PORT, () => console.log(`✈  Musafir Visa API v2 on port ${PORT}`));
