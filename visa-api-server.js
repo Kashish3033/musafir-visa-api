@@ -300,6 +300,7 @@ function runRulesEngine(destCode, ctx, speedFilter) {
 
   return {
     isEligible,
+    allSkus,          // ALL initially matched SKUs — needed in final.skuCodes even if not_eligible
     pricedSkus,
     docs,
     primarySku,
@@ -310,7 +311,7 @@ function runRulesEngine(destCode, ctx, speedFilter) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  BUILD VISA RESPONSE
+//  BUILD VISA RESPONSE  (correct format)
 // ════════════════════════════════════════════════════════════
 
 function buildVisaResponse(destCode, ctx, speedFilter, startMs) {
@@ -330,7 +331,7 @@ function buildVisaResponse(destCode, ctx, speedFilter, startMs) {
   const result = runRulesEngine(destCode, ctx, speedFilter);
   if (!result) return refusal(startMs);
 
-  const { isEligible, pricedSkus, docs, primarySku, cfg, matchedRuleIds, appliedAdjustments } = result;
+  const { isEligible, allSkus, pricedSkus, docs, primarySku, cfg, matchedRuleIds, appliedAdjustments } = result;
 
   // Answer text
   let answerText;
@@ -352,14 +353,14 @@ function buildVisaResponse(destCode, ctx, speedFilter, startMs) {
     answerText,
     {
       destinations: [destCode],
-      skuCodes:     pricedSkus.map(s => s.skuCode),
+      skuCodes:     allSkus.map(s => s.skuCode),   // all evaluated SKUs, including not_eligible ones
       documents:    docs.map(d => ({docCode: d.docCode, mandatory: d.mandatory, notes: d.notes})),
       processingTimeDays: primarySku ? primarySku.processingTimeDays : 0,
       minLeadTimeDays:    primarySku ? primarySku.minLeadTimeDays    : 0
     },
     {
       retrieved: {
-        skuCodes:   pricedSkus.map(s => s.skuCode),
+        skuCodes:   allSkus.map(s => s.skuCode),
         configIds:  [cfg._id]
       },
       matchedRules:       matchedRuleIds.map(r => ({ruleId: r})),
