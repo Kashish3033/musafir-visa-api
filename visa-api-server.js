@@ -205,30 +205,77 @@ function isFastTravelQuery(message) {
 
 function isTravelInfoQuery(message) {
   const lower = message.toLowerCase();
-  // Questions about what to do, see, eat, experience in a country
+
+  // Explicit visa/eligibility keywords — NEVER treat these as travel
+  const isVisaQ = lower.includes("visa") || lower.includes("eligible") ||
+    lower.includes("eligib") || lower.includes("document") || lower.includes("passport") ||
+    lower.includes("processing time") || lower.includes("evisa") || lower.includes("permit");
+  if (isVisaQ) return false;
+
+  // Travel / tourism keywords
   return (
     lower.includes("what can i do") ||
     lower.includes("what to do") ||
     lower.includes("places to visit") ||
+    lower.includes("places to see") ||
     lower.includes("best places") ||
+    lower.includes("best beach") ||
+    lower.includes("best beaches") ||
+    lower.includes("top beach") ||
+    lower.includes("beautiful beach") ||
     lower.includes("things to do") ||
+    lower.includes("things to see") ||
     lower.includes("must see") ||
     lower.includes("must visit") ||
+    lower.includes("must try") ||
     lower.includes("attractions") ||
+    lower.includes("tourist spot") ||
+    lower.includes("tourist place") ||
+    lower.includes("sightseeing") ||
     lower.includes("food to eat") ||
     lower.includes("what to eat") ||
     lower.includes("local food") ||
+    lower.includes("street food") ||
     lower.includes("cuisine") ||
+    lower.includes("restaurant") ||
     lower.includes("culture") ||
     lower.includes("weather") ||
+    lower.includes("climate") ||
     lower.includes("best time to visit") ||
+    lower.includes("best time to go") ||
     lower.includes("when to visit") ||
+    lower.includes("when to go") ||
     lower.includes("how many days") ||
     lower.includes("itinerary") ||
-    lower.includes("things to see") ||
+    lower.includes("trip plan") ||
+    lower.includes("travel guide") ||
     lower.includes("what is it like") ||
     lower.includes("tell me about") ||
-    lower.includes("famous for")
+    lower.includes("tell more") ||
+    lower.includes("more about") ||
+    lower.includes("more places") ||
+    lower.includes("more spots") ||
+    lower.includes("famous for") ||
+    lower.includes("known for") ||
+    lower.includes("explore") ||
+    lower.includes("experience") ||
+    lower.includes("hidden gem") ||
+    lower.includes("off the beaten") ||
+    lower.includes("local experience") ||
+    lower.includes("night life") ||
+    lower.includes("nightlife") ||
+    lower.includes("shopping mall") ||
+    lower.includes("shopping area") ||
+    lower.includes("day trip") ||
+    lower.includes("weekend") ||
+    lower.includes("things i should") ||
+    lower.includes("what should i see") ||
+    lower.includes("what should i do") ||
+    lower.includes("where to go") ||
+    lower.includes("where can i go") ||
+    lower.includes("show me places") ||
+    lower.includes("suggest places") ||
+    lower.includes("suggest activities")
   );
 }
 
