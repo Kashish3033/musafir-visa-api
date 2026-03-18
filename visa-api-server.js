@@ -117,6 +117,9 @@ const KNOWLEDGE_SOURCES = [
   {_id:"SRC_TR_001", destinationCountryCode:"TR", chunkId:"TR_CH_001", text:"Travel insurance and bank statement are common requirements. Schengen holders may use evisa for tourist.", trustScore:0.9}
 ];
 
+// All supported destination names (used to scope LLM responses)
+const SUPPORTED_COUNTRIES = DESTINATION.map(d => d.destinationCountryName).join(", ");
+
 // ════════════════════════════════════════════════════════════
 //  DESTINATION KEYWORD MAP
 //  Keys ordered so left-to-right scan finds correct country
@@ -199,6 +202,37 @@ function isFastTravelQuery(message) {
   return lower.includes("next week") || lower.includes("fast process") || lower.includes("quick process") ||
          lower.includes("travel soon") || lower.includes("short notice");
 }
+
+function isTravelInfoQuery(message) {
+  const lower = message.toLowerCase();
+  // Questions about what to do, see, eat, experience in a country
+  return (
+    lower.includes("what can i do") ||
+    lower.includes("what to do") ||
+    lower.includes("places to visit") ||
+    lower.includes("best places") ||
+    lower.includes("things to do") ||
+    lower.includes("must see") ||
+    lower.includes("must visit") ||
+    lower.includes("attractions") ||
+    lower.includes("food to eat") ||
+    lower.includes("what to eat") ||
+    lower.includes("local food") ||
+    lower.includes("cuisine") ||
+    lower.includes("culture") ||
+    lower.includes("weather") ||
+    lower.includes("best time to visit") ||
+    lower.includes("when to visit") ||
+    lower.includes("how many days") ||
+    lower.includes("itinerary") ||
+    lower.includes("things to see") ||
+    lower.includes("what is it like") ||
+    lower.includes("tell me about") ||
+    lower.includes("famous for")
+  );
+}
+
+
 
 function isRecommendationQuery(message) {
   const lower = message.toLowerCase();
@@ -623,6 +657,86 @@ function validateGeminiOutput(geminiText, rulesResult) {
 }
 
 
+
+// ════════════════════════════════════════════════════════════
+//  GEMINI TRAVEL INFO CALL
+//  Used for travel/tourism questions about our 15 countries.
+//  LLM answers from its own knowledge — no rules engine needed.
+//  Strictly scoped to the 15 countries in our dataset.
+//  Returns refusal if question is about an unlisted country.
+// ════════════════════════════════════════════════════════════
+
+async function callGeminiForTravelInfo(message, destCode, startMs) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const dest   = DESTINATION.find(d => d.destinationCountryCode === destCode);
+  const destName = dest ? dest.destinationCountryName : destCode;
+
+  if (!apiKey) {
+    return makeResponse(
+      `${destName} is a wonderful destination! For detailed travel tips, attractions and local experiences, please check Musafir's travel guides.`,
+      { destinations:[destCode], skuCodes:[], documents:[], processingTimeDays:0, minLeadTimeDays:0 },
+      { retrieved:{skuCodes:[],configIds:[]}, matchedRules:[], appliedAdjustments:[] },
+      startMs
+    );
+  }
+
+  const systemPrompt = `You are a friendly, knowledgeable travel assistant for Musafir, a travel company.
+
+You ONLY answer travel and tourism questions about these specific countries: ${SUPPORTED_COUNTRIES}.
+
+If asked about any country NOT in that list, respond: "I can only provide travel information for our supported destinations: UAE, Saudi Arabia, Turkey, Georgia, Azerbaijan, Thailand, Singapore, Indonesia, Malaysia, Sri Lanka, Maldives, Japan, South Korea, Italy, and Spain."
+
+Rules:
+1. Answer travel questions warmly and helpfully — things to do, places to see, food, culture, best time to visit, etc.
+2. Keep answers concise — 3 to 5 sentences maximum.
+3. Do NOT give visa or immigration advice — for that, tell the user to ask a visa question.
+4. Do NOT answer anything unrelated to travel (politics, finance, medical advice, etc.).
+5. Always end with one practical tip.`;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: message }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 300 }
+      })
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) throw new Error(`Gemini error ${res.status}`);
+
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+    if (!text) throw new Error("Empty response");
+
+    console.log(`[LLM-TRAVEL] Gemini responded for ${destName}`);
+
+    return makeResponse(
+      text,
+      { destinations:[destCode], skuCodes:[], documents:[], processingTimeDays:0, minLeadTimeDays:0 },
+      { retrieved:{skuCodes:[],configIds:[]}, matchedRules:[], appliedAdjustments:[], llmSource:"gemini-travel" },
+      startMs
+    );
+
+  } catch (err) {
+    console.log(`[LLM-TRAVEL] Error: ${err.message} — using fallback`);
+    return makeResponse(
+      `${destName} is a fascinating destination! It's known for ${dest ? dest.interests.join(", ") : "great experiences"}. For detailed travel guides, visit Musafir's destination pages. If you have visa questions for ${destName}, just ask!`,
+      { destinations:[destCode], skuCodes:[], documents:[], processingTimeDays:0, minLeadTimeDays:0 },
+      { retrieved:{skuCodes:[],configIds:[]}, matchedRules:[], appliedAdjustments:[] },
+      startMs
+    );
+  }
+}
+
 // ════════════════════════════════════════════════════════════
 //  RESPONSE BUILDERS
 // ════════════════════════════════════════════════════════════
@@ -668,11 +782,27 @@ async function processRequest(message, context, startMs) {
   const destCode    = detectDestination(message, [ctx.residencyCountry, ctx.nationality].filter(Boolean));
   const speedFilter = detectSpeed(message);
 
-  // ── Step 1: Rules engine computes the ground-truth result ─
+  // ── Step 1: Route the query ──────────────────────────────
+  // Three possible paths:
+  //   A) Travel info question about a known destination → LLM answers (no rules engine)
+  //   B) Visa/eligibility question about a known destination → rules engine + LLM hybrid
+  //   C) Recommendation query or refusal
   let result;
-  if (destCode) {
+
+  const travelInfo = destCode && isTravelInfoQuery(message);
+
+  if (travelInfo) {
+    // Path A: travel question (what to do, food, culture etc.) — LLM answers freely
+    // Still scoped to our 15 countries — won't answer about Antarctica etc.
+    result = await callGeminiForTravelInfo(message, destCode, startMs);
+    delete result._fallbackText;
+    return result;
+
+  } else if (destCode) {
+    // Path B: visa/eligibility question — rules engine computes, LLM polishes
     result = buildVisaResponse(destCode, ctx, speedFilter, startMs);
   } else {
+    // Path C: recommendation or refusal
     const wantsRec = isRecommendationQuery(message) || isCheapestQuery(message) ||
                      isFastTravelQuery(message) || (ctx.interests && ctx.interests.length > 0) ||
                      (ctx.travelInDays && ctx.travelInDays <= 30);
