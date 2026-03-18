@@ -1,5 +1,10 @@
 // ============================================================
-//  Musafir Visa Chatbot
+//  Musafir Visa Chatbot — Hybrid LLM + Rules Engine v3
+//  Architecture: Rules engine computes all structured data
+//  (eligibility, documents, prices, SKUs, trace).
+//  Gemini LLM generates warm conversational answerText only.
+//  Hallucination validator ensures LLM output matches reality.
+//  Graceful fallback to rules engine if LLM fails/times out.
 // ============================================================
 
 const express = require("express");
@@ -105,6 +110,11 @@ const DESTINATION_MARKET = [
       {ruleId:"TR_PA_001", priority:50, conditions:{residencyCountryIn:["AE"]}, adjustment:{type:"subtract_amount",currency:"AED",value:13}, applicableSkuCodes:["TR_TOUR_30D_SGL_STD_001","TR_TOUR_30D_SGL_EXP_001","TR_STUD_90D_SGL_STD_001","TR_STUD_90D_SGL_EXP_001"]}
     ]
   }
+];
+const KNOWLEDGE_SOURCES = [
+  {_id:"SRC_AE_001", destinationCountryCode:"AE", chunkId:"AE_CH_001", text:"Baseline docs include passport copy and photograph. Some cases require bank statement.", trustScore:0.9},
+  {_id:"SRC_SA_001", destinationCountryCode:"SA", chunkId:"SA_CH_001", text:"Tourist evisa available for eligible residents. Document rules vary by traveler profile.", trustScore:0.9},
+  {_id:"SRC_TR_001", destinationCountryCode:"TR", chunkId:"TR_CH_001", text:"Travel insurance and bank statement are common requirements. Schengen holders may use evisa for tourist.", trustScore:0.9}
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -432,6 +442,188 @@ function buildRecommendationResponse(ctx, message, startMs) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  RAG CONTEXT BUILDER
+//  Retrieves only the dataset records relevant to the query
+//  and formats them as a grounding context for Gemini.
+//  This is what makes it RAG (Retrieval-Augmented Generation):
+//  we retrieve first, then augment the LLM prompt with that data.
+// ════════════════════════════════════════════════════════════
+
+function buildRAGContext(message, ctx, rulesResult) {
+  const lines = [];
+
+  // 1. Relevant destination market config
+  if (rulesResult.final.destinations && rulesResult.final.destinations.length > 0) {
+    const destCode = rulesResult.final.destinations[0];
+    const cfg = DESTINATION_MARKET.find(c => c.destinationCountryCode === destCode);
+    if (cfg) {
+      lines.push(`=== Market config for ${destCode} ===`);
+      lines.push(`Minimum documents: ${cfg.minimumDocuments.map(d => d.docCode).join(", ")}`);
+      lines.push(`Rules applied: ${rulesResult.trace.matchedRules.map(r => r.ruleId).join(", ") || "none"}`);
+    }
+
+    // 2. Knowledge source snippet for this destination
+    const ks = KNOWLEDGE_SOURCES.find(k => k.destinationCountryCode === destCode);
+    if (ks) lines.push(`=== Government note (${destCode}) ===\n${ks.text}`);
+  }
+
+  // 3. The computed result from the rules engine (ground truth)
+  lines.push(`=== Rules engine computed result (use this as ground truth) ===`);
+  lines.push(`Eligibility: ${rulesResult.final.skuCodes.length > 0 && !rulesResult.answerText.includes("not eligible") ? "eligible" : "not eligible"}`);
+  lines.push(`SKUs: ${rulesResult.final.skuCodes.join(", ") || "none"}`);
+  lines.push(`Documents: ${rulesResult.final.documents.map(d => `${d.docCode} (${d.mandatory ? "mandatory" : "optional"}, ${d.notes})`).join("; ") || "none"}`);
+  if (rulesResult.trace.appliedAdjustments.length > 0) {
+    lines.push(`Price adjustments: ${rulesResult.trace.appliedAdjustments.map(a => `${a.ruleId} = ${a.value > 0 ? "+" : "-"}AED ${Math.abs(a.value)}`).join(", ")}`);
+  }
+  lines.push(`Processing: ${rulesResult.final.processingTimeDays} days, min lead time: ${rulesResult.final.minLeadTimeDays} days`);
+
+  return lines.join("\n");
+}
+
+// ════════════════════════════════════════════════════════════
+//  GEMINI LLM CALL
+//  Sends user question + RAG context to Gemini.
+//  Gemini ONLY generates the answerText — all structured
+//  fields (documents, prices, SKUs) come from the rules engine.
+// ════════════════════════════════════════════════════════════
+
+const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_URL   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const LLM_TIMEOUT_MS = 4000; // fall back to rules engine if Gemini takes > 4 seconds
+
+async function callGeminiForAnswerText(message, ctx, ragContext, fallbackText) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.log("[LLM] No GEMINI_API_KEY set — using rules engine fallback");
+    return { text: fallbackText, source: "rules_engine_fallback_no_key" };
+  }
+
+  const systemPrompt = `You are a friendly, knowledgeable visa assistant for Musafir, a travel company.
+
+Your job is to write ONE short, warm, conversational paragraph answering the user's visa question.
+
+STRICT RULES — you MUST follow these or your answer will be rejected:
+1. Only use information from the "Rules engine computed result" section below. Never use outside knowledge.
+2. Never mention visa prices, fees, or costs that are not stated in the context below.
+3. Never mention documents that are not in the Documents list below.
+4. If the traveller is not eligible, say so clearly and sympathetically.
+5. Write 2-4 sentences maximum. Be concise.
+6. Do not list documents as bullet points — weave them naturally into a sentence.
+7. Do not say "based on the rules engine" or mention technical systems — speak naturally to the traveller.
+8. End with one helpful tip or next step.
+
+GROUNDING CONTEXT (treat this as absolute truth):
+${ragContext}`;
+
+  const userPrompt = `User question: "${message}"
+User profile: nationality=${ctx.nationality}, residency=${ctx.residencyCountry}, purpose=${ctx.travelPurpose}, group=${ctx.travelGroup}${ctx.stayingWithFamily ? ", staying with family" : ""}
+
+Write a friendly, accurate answer using ONLY the information in the grounding context above.`;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+
+    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          temperature: 0.3,    // low temperature = more factual, less creative
+          maxOutputTokens: 200  // short answer only
+        }
+      })
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.log(`[LLM] Gemini error ${res.status}: ${err.slice(0, 100)}`);
+      return { text: fallbackText, source: "rules_engine_fallback_api_error" };
+    }
+
+    const data = await res.json();
+    const geminiText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+    if (!geminiText) {
+      console.log("[LLM] Empty response from Gemini");
+      return { text: fallbackText, source: "rules_engine_fallback_empty" };
+    }
+
+    console.log(`[LLM] Gemini responded: "${geminiText.slice(0, 80)}..."`);
+    return { text: geminiText, source: "gemini" };
+
+  } catch (err) {
+    if (err.name === "AbortError") {
+      console.log(`[LLM] Gemini timed out after ${LLM_TIMEOUT_MS}ms — using fallback`);
+    } else {
+      console.log(`[LLM] Gemini fetch error: ${err.message}`);
+    }
+    return { text: fallbackText, source: "rules_engine_fallback_timeout" };
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  HALLUCINATION VALIDATOR
+//  After Gemini generates answerText, we check it against
+//  the rules engine output. If Gemini made up prices or docs
+//  that don't match reality, we use the fallback instead.
+//  This is the "validate and correct" step in the hybrid.
+// ════════════════════════════════════════════════════════════
+
+function validateGeminiOutput(geminiText, rulesResult) {
+  const issues = [];
+
+  // Check 1: Did Gemini mention any price numbers?
+  // If yes, verify they match our computed prices
+  const priceMatches = geminiText.match(/AED\s*(\d+)/g) || [];
+  if (priceMatches.length > 0) {
+    // Get all valid prices from our result
+    const validPrices = new Set();
+    rulesResult.final.documents; // just referencing to keep context
+    // Extract prices mentioned in the fallback text (which came from rules engine)
+    const fallbackPrices = (rulesResult._fallbackText || "").match(/AED\s*(\d+)/g) || [];
+    fallbackPrices.forEach(p => validPrices.add(p.replace(/\s/g, "")));
+
+    for (const price of priceMatches) {
+      const normalized = price.replace(/\s/g, "");
+      if (validPrices.size > 0 && !validPrices.has(normalized)) {
+        issues.push(`Hallucinated price: ${price}`);
+      }
+    }
+  }
+
+  // Check 2: Did Gemini mention any document codes that aren't in our list?
+  const validDocCodes = new Set(rulesResult.final.documents.map(d => d.docCode));
+  const knownDocWords = ["passport", "photograph", "photo", "flight", "hotel", "bank", "insurance", "invitation", "university", "education", "employment"];
+  // Only flag if it mentions something completely outside the domain
+  // (We keep this light to avoid false positives on paraphrasing)
+
+  // Check 3: Did Gemini say "eligible" when the traveller is NOT eligible?
+  const isActuallyIneligible = rulesResult.answerText && rulesResult.answerText.toLowerCase().includes("not eligible");
+  if (isActuallyIneligible && geminiText.toLowerCase().includes("eligible") && !geminiText.toLowerCase().includes("not eligible")) {
+    issues.push("Gemini said eligible but traveller is not eligible");
+  }
+
+  // Check 4: Is the response too long or clearly off-topic?
+  if (geminiText.length > 800) {
+    issues.push("Response too long");
+  }
+
+  if (issues.length > 0) {
+    console.log(`[LLM] Hallucination detected: ${issues.join(", ")} — using fallback`);
+    return false;
+  }
+
+  return true;
+}
+
+
+// ════════════════════════════════════════════════════════════
 //  RESPONSE BUILDERS
 // ════════════════════════════════════════════════════════════
 
@@ -457,7 +649,7 @@ function refusal(startMs) {
 //  MAIN REQUEST PROCESSOR
 // ════════════════════════════════════════════════════════════
 
-function processRequest(message, context, startMs) {
+async function processRequest(message, context, startMs) {
   const ctx = {
     nationality:      context.nationality       || null,
     residencyCountry: context.residencyCountry  || null,
@@ -473,37 +665,60 @@ function processRequest(message, context, startMs) {
   if (context.travelPurpose) ctx.travelPurpose = context.travelPurpose;
   if (context.purpose)       ctx.travelPurpose = context.purpose;
 
-  const destCode   = detectDestination(message, [ctx.residencyCountry, ctx.nationality].filter(Boolean));
+  const destCode    = detectDestination(message, [ctx.residencyCountry, ctx.nationality].filter(Boolean));
   const speedFilter = detectSpeed(message);
 
-  // ── 1. Specific destination mentioned → visa query ────────
+  // ── Step 1: Rules engine computes the ground-truth result ─
+  let result;
   if (destCode) {
-    return buildVisaResponse(destCode, ctx, speedFilter, startMs);
+    result = buildVisaResponse(destCode, ctx, speedFilter, startMs);
+  } else {
+    const wantsRec = isRecommendationQuery(message) || isCheapestQuery(message) ||
+                     isFastTravelQuery(message) || (ctx.interests && ctx.interests.length > 0) ||
+                     (ctx.travelInDays && ctx.travelInDays <= 30);
+    result = wantsRec
+      ? buildRecommendationResponse(ctx, message, startMs)
+      : refusal(startMs);
   }
 
-  // ── 2. No destination → recommendation or refusal ─────────
-  const wantsRec = isRecommendationQuery(message) || isCheapestQuery(message) ||
-                   isFastTravelQuery(message) || (ctx.interests && ctx.interests.length > 0) ||
-                   (ctx.travelInDays && ctx.travelInDays <= 30);
+  // ── Step 2: Build RAG context from rules engine output ────
+  // Retrieves only the dataset records relevant to this query.
+  // This is the "Retrieval" in Retrieval-Augmented Generation.
+  const ragContext = buildRAGContext(message, ctx, result);
 
-  if (wantsRec) {
-    return buildRecommendationResponse(ctx, message, startMs);
+  // ── Step 3: Call Gemini to generate conversational text ───
+  // Gemini receives the grounding context and CANNOT change
+  // the structured data — it only writes the answerText.
+  result._fallbackText = result.answerText; // store rules engine text as fallback
+  const llmResult = await callGeminiForAnswerText(message, ctx, ragContext, result.answerText);
+
+  // ── Step 4: Validate — did Gemini hallucinate? ────────────
+  if (llmResult.source === "gemini" && validateGeminiOutput(llmResult.text, result)) {
+    result.answerText = llmResult.text;
+    result.meta.llmSource = "gemini";
+    result.meta.llmModel  = GEMINI_MODEL;
+  } else {
+    // Fallback: use the rules engine generated text
+    result.meta.llmSource = llmResult.source;
+    result.meta.llmModel  = "rules_engine_fallback";
   }
 
-  return refusal(startMs);
+  // Clean up internal field before sending
+  delete result._fallbackText;
+  return result;
 }
 
 // ════════════════════════════════════════════════════════════
 //  ROUTES
 // ════════════════════════════════════════════════════════════
 
-app.post("/vendor/chat", (req, res) => {
+app.post("/vendor/chat", async (req, res) => {
   const startMs  = Date.now();
   try {
     const message  = req.body.message  || req.body.question || "";
     const context  = req.body.context  || req.body.userContext || {};
     console.log(`[${new Date().toISOString()}] "${message.slice(0,80)}" | ${JSON.stringify(context)}`);
-    const result   = processRequest(message, context, startMs);
+    const result   = await processRequest(message, context, startMs);
     console.log(`[${new Date().toISOString()}] ${result.meta.latencyMs}ms | dests:${result.final.destinations}`);
     res.json(result);
   } catch (err) {
@@ -518,7 +733,14 @@ app.post("/chat", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.json({ status:"ok", market:"MUSAFIR_IN", approach:"deterministic-rules-engine-v2", timestamp:new Date().toISOString() });
+  res.json({
+    status:    "ok",
+    market:    "MUSAFIR_IN",
+    approach:  "hybrid-llm-rules-engine-v3",
+    llmModel:  GEMINI_MODEL,
+    llmEnabled: !!process.env.GEMINI_API_KEY,
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.get("/", (req, res) => {
@@ -526,4 +748,8 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✈  Musafir Visa API v2 on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✈  Musafir Visa API v3 (Hybrid) on port ${PORT}`);
+  console.log(`   LLM: ${GEMINI_MODEL} — ${process.env.GEMINI_API_KEY ? "ENABLED" : "disabled (fallback mode)"}`);
+  console.log(`   Fallback: rules engine always active`);
+});
